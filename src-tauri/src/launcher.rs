@@ -35,6 +35,31 @@ pub fn wait_for_external_process(process_name: &str) {
         false
     });
     if !appeared { return; }
+
+    #[cfg(target_os = "windows")]
+    {
+        let ps_script = format!(r#"
+            Add-Type @"
+                using System;
+                using System.Runtime.InteropServices;
+                public class Win32 {{
+                    [DllImport("user32.dll")]
+                    [return: MarshalAs(UnmanagedType.Bool)]
+                    public static extern bool SetForegroundWindow(IntPtr hWnd);
+                    [DllImport("user32.dll")]
+                    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+                }}
+"@
+            $proc = Get-Process -Name "{}" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($proc -and $proc.MainWindowHandle -ne 0) {{
+                [Win32]::ShowWindow($proc.MainWindowHandle, 9)
+                [Win32]::SetForegroundWindow($proc.MainWindowHandle)
+            }}
+        "#, process_name.replace(".exe", ""));
+        let mut command = Command::new("powershell.exe");
+        command.creation_flags(CREATE_NO_WINDOW);
+        let _ = command.args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &ps_script]).spawn();
+    }
     while process_is_running(process_name) {
         thread::sleep(Duration::from_secs(1));
     }

@@ -38,7 +38,7 @@ fn launch_game(game_id: String, state: State<'_, AppState>, app: AppHandle) -> R
         let connection = state.database.lock().expect("database lock poisoned");
         write_log(&connection, "info", "game_launch_requested", Some(&game.id))?;
     }
-    if let Some(window) = window { let _ = window.hide(); }
+    if let Some(window) = window { let _ = window.minimize(); }
     let restore_app = app.clone();
     let completed_game_id = game.id.clone();
     std::thread::spawn(move || {
@@ -47,6 +47,7 @@ fn launch_game(game_id: String, state: State<'_, AppState>, app: AppHandle) -> R
             launcher::LaunchResult::External(process_name) => launcher::wait_for_external_process(&process_name),
         }
         if let Some(window) = restore_app.get_webview_window("main") {
+            let _ = window.unminimize();
             let _ = window.show();
             let _ = window.set_always_on_top(false);
             let _ = window.set_focus();
