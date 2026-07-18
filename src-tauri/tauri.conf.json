@@ -16,7 +16,7 @@
         "title": "Playnite",
         "fullscreen": true,
         "decorations": false,
-        "alwaysOnTop": true,
+        "alwaysOnTop": false,
         "resizable": false,
         "maximizable": false,
         "minimizable": false,

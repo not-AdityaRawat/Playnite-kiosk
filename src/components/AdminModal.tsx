@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { ArrowDownUp, Check, KeyRound, LibraryBig, LogOut, ScrollText, ShieldCheck, Trash2, X } from 'lucide-react';
-import { adminStatus, authenticateAdmin, changeAdminPassword, deleteManagedGame, discoverGames, enterAdminDebugMode, exitKiosk, exportConfiguration, importConfiguration, initializeAdmin, listAdminLogs, listManagedGames, logoutAdmin, saveManagedGame } from '../services/admin';
+import { adminStatus, authenticateAdmin, changeAdminPassword, deleteManagedGame, discoverGames, enterAdminDebugMode, exitKiosk, exportConfiguration, getKioskMode, importConfiguration, initializeAdmin, listAdminLogs, listManagedGames, logoutAdmin, saveManagedGame, setKioskMode } from '../services/admin';
 import type { AdminSession, ConfigurationExport, DiscoveryCandidate, GameInput, LogEntry, ManagedGame } from '../types/admin';
 import type { LaunchMethod } from '../types/game';
 
@@ -18,6 +18,12 @@ const launchMethods: Array<{ value: LaunchMethod; label: string }> = [
   { value: 'powershell_script', label: 'PowerShell script' },
   { value: 'batch_file', label: 'Batch file' },
 ];
+
+const accentForName = (name: string) => {
+  const palette = ['#d85b40', '#5b9f9a', '#dfca35', '#a6603b', '#637f99', '#b76a88', '#759c53', '#a575c7'];
+  const hash = Array.from(name.trim().toLowerCase()).reduce((value, character) => ((value * 31) + character.charCodeAt(0)) >>> 0, 0);
+  return palette[hash % palette.length];
+};
 
 const blankGame = (): GameInput => ({ name: '', launchMethod: 'direct_exe', executable: '', workingDirectory: '', arguments: '', iconPath: '', processName: '', accent: '#75d7cb', sortOrder: 0, visible: true });
 
@@ -38,6 +44,7 @@ export function AdminModal({ onClose, onLibraryChanged }: AdminModalProps) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [discovered, setDiscovered] = useState<DiscoveryCandidate[]>([]);
   const [editingGame, setEditingGame] = useState<GameInput>(blankGame());
+  const [kioskEnabled, setKioskEnabled] = useState(false);
 
   useEffect(() => {
     void adminStatus().then((status) => setGate(status.initialized ? 'login' : 'setup')).catch((error: unknown) => {
@@ -50,7 +57,9 @@ export function AdminModal({ onClose, onLibraryChanged }: AdminModalProps) {
 
   async function openPanel(nextSession: AdminSession) {
     await enterAdminDebugMode(nextSession.token);
+    const enabled = await getKioskMode(nextSession.token);
     setSession(nextSession);
+    setKioskEnabled(enabled);
     setGate('panel');
     setMessage('');
     await refreshGames(nextSession.token);
@@ -141,6 +150,20 @@ export function AdminModal({ onClose, onLibraryChanged }: AdminModalProps) {
     onClose();
   }
 
+  async function updateKioskMode(enabled: boolean) {
+    if (!session) return;
+    setBusy(true);
+    try {
+      await setKioskMode(session.token, enabled);
+      setKioskEnabled(enabled);
+      setMessage(enabled ? 'Close protection will apply when administrator access is locked.' : 'Close protection will remain disabled when administrator access is locked.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to update kiosk restrictions.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="admin-backdrop" role="presentation">
       <section className="admin-modal" role="dialog" aria-modal="true" aria-label="Playnite administrator access">
@@ -174,7 +197,7 @@ export function AdminModal({ onClose, onLibraryChanged }: AdminModalProps) {
             <div className="admin-content">
               {message && <p className="form-message" role="status">{message}</p>}
               {view === 'library' && <LibraryAdmin games={games} discovered={discovered} value={editingGame} busy={busy} onScan={() => void scanLocalGames()} onChange={setEditingGame} onSubmit={saveGame} onEdit={(game) => setEditingGame({ ...game })} onDelete={removeGame} />}
-              {view === 'security' && <SecurityAdmin session={session} onMessage={setMessage} onExit={() => void exitKiosk(session.token)} />}
+              {view === 'security' && <SecurityAdmin session={session} kioskEnabled={kioskEnabled} onKioskChange={(enabled) => void updateKioskMode(enabled)} onMessage={setMessage} onExit={() => void exitKiosk(session.token)} />}
               {view === 'transfer' && <TransferAdmin session={session} onMessage={setMessage} onLibraryChanged={onLibraryChanged} />}
               {view === 'logs' && <LogsAdmin logs={logs} />}
             </div>
@@ -212,16 +235,16 @@ function LibraryAdmin({ games, discovered, value, busy, onScan, onChange, onSubm
   return <div className="admin-library">
     <div className="admin-section-title"><div><h3>Library</h3><p>{games.length} configured games</p></div><div className="admin-section-actions"><button className="secondary-button" type="button" onClick={onScan} disabled={busy}>Scan local installs</button><button className="secondary-button" type="button" onClick={() => onChange(blankGame())}>New game</button></div></div>
     <div className="admin-library__grid">
-      <div className="managed-games">{games.length === 0 ? <p className="admin-empty">No games configured.</p> : games.map((game) => <div className="managed-game" key={game.id}><button type="button" onClick={() => onEdit({ ...game })}><span className="managed-game__accent" style={{ background: game.accent }} /><span><strong>{game.name}</strong><small>{game.visible ? game.launchMethod : 'Hidden'}</small></span></button><button className="icon-button" type="button" onClick={() => onDelete(game)} aria-label={`Remove ${game.name}`}><Trash2 size={17} /></button></div>)}{discovered.length > 0 && <div className="discovery-list"><h4>Detected locally</h4>{discovered.map((candidate, index) => <button type="button" key={`${candidate.source}-${candidate.game.name}-${index}`} onClick={() => onChange({ ...candidate.game })}><strong>{candidate.game.name}</strong><small>{candidate.source}</small></button>)}</div>}</div>
+      <div className="managed-games">{games.length === 0 ? <p className="admin-empty">No games configured.</p> : games.map((game) => <div className="managed-game" key={game.id}><button type="button" onClick={() => onEdit({ ...game })}><span className="managed-game__accent" style={{ background: game.accent }} /><span><strong>{game.name}</strong><small>{game.visible ? game.launchMethod : 'Hidden'}</small></span></button><button className="icon-button" type="button" onClick={() => onDelete(game)} aria-label={`Remove ${game.name}`}><Trash2 size={17} /></button></div>)}{discovered.length > 0 && <div className="discovery-list"><h4>Detected locally</h4>{discovered.map((candidate, index) => <button type="button" key={`${candidate.source}-${candidate.game.name}-${index}`} onClick={() => onChange({ ...candidate.game, accent: accentForName(candidate.game.name) })}><strong>{candidate.game.name}</strong><small>{candidate.source}</small></button>)}</div>}</div>
       <form className="game-editor" onSubmit={onSubmit}>
         <h4>{formTitle}</h4>
-        <label>Name<input value={value.name} onChange={(event) => onChange({ ...value, name: event.target.value })} maxLength={160} required /></label>
+        <label>Name<input value={value.name} onChange={(event) => { const name = event.target.value; onChange({ ...value, name, accent: value.id ? value.accent : accentForName(name) }); }} maxLength={160} required /></label>
         <label>Launch method<select value={value.launchMethod} onChange={(event) => onChange({ ...value, launchMethod: event.target.value as LaunchMethod })}>{launchMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}</select></label>
         <label>Launch target<input value={value.executable} onChange={(event) => onChange({ ...value, executable: event.target.value })} maxLength={2048} required /></label>
         <label>Working directory<input value={value.workingDirectory ?? ''} onChange={(event) => onChange({ ...value, workingDirectory: event.target.value })} maxLength={2048} /></label>
         <label>Arguments<input value={value.arguments ?? ''} onChange={(event) => onChange({ ...value, arguments: event.target.value })} maxLength={4096} /></label>
         <label>Game process name<input value={value.processName ?? ''} onChange={(event) => onChange({ ...value, processName: event.target.value })} maxLength={255} placeholder="ExampleGame.exe" /></label>
-        <div className="two-fields"><label>Accent<input value={value.accent} onChange={(event) => onChange({ ...value, accent: event.target.value })} pattern="#[0-9A-Fa-f]{6}" required /></label><label>Sort order<input type="number" value={value.sortOrder} onChange={(event) => onChange({ ...value, sortOrder: Number(event.target.value) })} /></label></div>
+        <div className="two-fields"><div className="color-preview"><span style={{ background: value.accent }} aria-hidden="true" /><small>Library color</small></div><label>Sort order<input type="number" value={value.sortOrder} onChange={(event) => onChange({ ...value, sortOrder: Number(event.target.value) })} /></label></div>
         <label className="checkbox-field"><input type="checkbox" checked={value.visible} onChange={(event) => onChange({ ...value, visible: event.target.checked })} />Visible in library</label>
         <button className="command-button" type="submit" disabled={busy}><Check size={17} />Save game</button>
       </form>
@@ -229,7 +252,7 @@ function LibraryAdmin({ games, discovered, value, busy, onScan, onChange, onSubm
   </div>;
 }
 
-function SecurityAdmin({ session, onMessage, onExit }: { session: AdminSession; onMessage: (message: string) => void; onExit: () => void }) {
+function SecurityAdmin({ session, kioskEnabled, onKioskChange, onMessage, onExit }: { session: AdminSession; kioskEnabled: boolean; onKioskChange: (enabled: boolean) => void; onMessage: (message: string) => void; onExit: () => void }) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [nextPassword, setNextPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -242,7 +265,7 @@ function SecurityAdmin({ session, onMessage, onExit }: { session: AdminSession; 
     catch (error) { onMessage(error instanceof Error ? error.message : 'Unable to change password.'); }
     finally { setBusy(false); }
   }
-  return <div className="security-admin"><div className="admin-section-title"><div><h3>Security</h3><p>Administrator sessions expire after 15 minutes of inactivity.</p></div></div><form className="password-form" onSubmit={submit}><label>Current password<input type="password" value={currentPassword} autoComplete="current-password" onChange={(event) => setCurrentPassword(event.target.value)} required /></label><label>New password<input type="password" value={nextPassword} minLength={12} autoComplete="new-password" onChange={(event) => setNextPassword(event.target.value)} required /></label><label>Confirm new password<input type="password" value={confirmation} minLength={12} autoComplete="new-password" onChange={(event) => setConfirmation(event.target.value)} required /></label><button className="command-button" type="submit" disabled={busy}>Change password</button></form><div className="danger-zone"><h4>Exit kiosk</h4><p>Closes Playnite and returns control to the Windows shell configured for this account.</p><button className="danger-button" type="button" onClick={onExit}>Exit Playnite</button></div></div>;
+  return <div className="security-admin"><div className="admin-section-title"><div><h3>Security</h3><p>Administrator sessions expire after 15 minutes of inactivity.</p></div></div><div className="kiosk-setting"><div><h4>Kiosk close protection</h4><p>Prevent closing Playnite through its window controls after admin access is locked.</p></div><label className="toggle-switch"><input type="checkbox" checked={kioskEnabled} onChange={(event) => onKioskChange(event.target.checked)} /><span aria-hidden="true" /></label></div><form className="password-form" onSubmit={submit}><label>Current password<input type="password" value={currentPassword} autoComplete="current-password" onChange={(event) => setCurrentPassword(event.target.value)} required /></label><label>New password<input type="password" value={nextPassword} minLength={12} autoComplete="new-password" onChange={(event) => setNextPassword(event.target.value)} required /></label><label>Confirm new password<input type="password" value={confirmation} minLength={12} autoComplete="new-password" onChange={(event) => setConfirmation(event.target.value)} required /></label><button className="command-button" type="submit" disabled={busy}>Change password</button></form><div className="danger-zone"><h4>Exit Playnite</h4><p>Closes Playnite and returns control to the Windows shell configured for this account.</p><button className="danger-button" type="button" onClick={onExit}>Exit Playnite</button></div></div>;
 }
 
 function LogsAdmin({ logs }: { logs: LogEntry[] }) {

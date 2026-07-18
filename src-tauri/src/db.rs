@@ -39,10 +39,26 @@ pub fn open_database(data_dir: &Path) -> Result<Connection, AppError> {
             password_hash TEXT NOT NULL,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS launcher_settings (
+            singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+            kiosk_enabled INTEGER NOT NULL DEFAULT 0 CHECK (kiosk_enabled IN (0, 1))
+        );
+        INSERT OR IGNORE INTO launcher_settings (singleton, kiosk_enabled) VALUES (1, 0);
         ",
     )?;
     ensure_process_name_column(&connection)?;
     Ok(connection)
+}
+
+pub fn kiosk_enabled(connection: &Connection) -> Result<bool, AppError> {
+    connection.query_row("SELECT kiosk_enabled FROM launcher_settings WHERE singleton = 1", [], |row| row.get::<_, i32>(0))
+        .map(|value| value == 1)
+        .map_err(AppError::from)
+}
+
+pub fn set_kiosk_enabled(connection: &Connection, enabled: bool) -> Result<(), AppError> {
+    connection.execute("UPDATE launcher_settings SET kiosk_enabled = ?1 WHERE singleton = 1", [i32::from(enabled)])?;
+    Ok(())
 }
 
 fn ensure_process_name_column(connection: &Connection) -> Result<(), AppError> {

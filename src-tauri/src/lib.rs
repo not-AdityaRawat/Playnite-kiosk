@@ -7,7 +7,7 @@ mod models;
 
 use std::sync::Mutex;
 
-use db::{delete_game, find_game, get_password_hash, has_admin_password, list_all_games, list_games as database_list_games, list_logs, open_database, replace_games, set_password_hash, upsert_game, write_log};
+use db::{delete_game, find_game, get_password_hash, has_admin_password, kiosk_enabled, list_all_games, list_games as database_list_games, list_logs, open_database, replace_games, set_kiosk_enabled, set_password_hash, upsert_game, write_log};
 use error::AppError;
 use models::{AdminSession, AdminStatus, ConfigurationExport, DiscoveryCandidate, Game, GameInput, LogEntry};
 use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
@@ -29,12 +29,16 @@ fn launch_game(game_id: String, state: State<'_, AppState>, app: AppHandle) -> R
         let connection = state.database.lock().expect("database lock poisoned");
         find_game(&connection, &game_id)?
     };
-    let launch_result = launcher::launch(&game)?;
+    let window = app.get_webview_window("main");
+    let launch_result = match launcher::launch(&game) {
+        Ok(result) => result,
+        Err(error) => return Err(error),
+    };
     {
         let connection = state.database.lock().expect("database lock poisoned");
         write_log(&connection, "info", "game_launch_requested", Some(&game.id))?;
     }
-    if let Some(window) = app.get_webview_window("main") { let _ = window.hide(); }
+    if let Some(window) = window { let _ = window.hide(); }
     let restore_app = app.clone();
     let completed_game_id = game.id.clone();
     std::thread::spawn(move || {
@@ -44,6 +48,7 @@ fn launch_game(game_id: String, state: State<'_, AppState>, app: AppHandle) -> R
         }
         if let Some(window) = restore_app.get_webview_window("main") {
             let _ = window.show();
+            let _ = window.set_always_on_top(false);
             let _ = window.set_focus();
         }
         let _ = restore_app.emit("game-session-ended", completed_game_id);
@@ -88,21 +93,33 @@ fn authenticate_admin(password: String, state: State<'_, AppState>) -> Result<Ad
 fn logout_admin(_session_token: String, state: State<'_, AppState>, app: AppHandle) -> Result<(), AppError> {
     let mut auth_state = state.auth.lock().expect("authentication lock poisoned");
     auth::logout(&mut auth_state);
-    apply_kiosk_window_state(&app)?;
+    let kiosk_mode = {
+        let connection = state.database.lock().expect("database lock poisoned");
+        kiosk_enabled(&connection)?
+    };
+    apply_player_window_state(&app)?;
     Ok(())
 }
 
 #[tauri::command]
 fn enter_admin_debug_mode(session_token: String, state: State<'_, AppState>, app: AppHandle) -> Result<(), AppError> {
     authorize(&state, &session_token)?;
-    let window = app.get_webview_window("main").ok_or_else(|| AppError::Window("main window is unavailable".into()))?;
-    window.set_fullscreen(false).map_err(|error| AppError::Window(error.to_string()))?;
-    window.set_always_on_top(false).map_err(|error| AppError::Window(error.to_string()))?;
-    window.set_decorations(true).map_err(|error| AppError::Window(error.to_string()))?;
-    window.set_resizable(true).map_err(|error| AppError::Window(error.to_string()))?;
-    window.set_minimizable(true).map_err(|error| AppError::Window(error.to_string()))?;
-    window.set_maximizable(true).map_err(|error| AppError::Window(error.to_string()))?;
-    window.set_skip_taskbar(false).map_err(|error| AppError::Window(error.to_string()))?;
+    apply_admin_window_state(&app)
+}
+
+#[tauri::command]
+fn admin_get_kiosk_mode(session_token: String, state: State<'_, AppState>) -> Result<bool, AppError> {
+    authorize(&state, &session_token)?;
+    let connection = state.database.lock().expect("database lock poisoned");
+    kiosk_enabled(&connection)
+}
+
+#[tauri::command]
+fn admin_set_kiosk_mode(session_token: String, enabled: bool, state: State<'_, AppState>) -> Result<(), AppError> {
+    authorize(&state, &session_token)?;
+    let connection = state.database.lock().expect("database lock poisoned");
+    set_kiosk_enabled(&connection, enabled)?;
+    write_log(&connection, "info", "kiosk_mode_changed", Some(if enabled { "enabled" } else { "disabled" }))?;
     Ok(())
 }
 
@@ -201,16 +218,28 @@ fn authorize(state: &State<'_, AppState>, session_token: &str) -> Result<(), App
     auth::authorize(&mut auth_state, session_token)
 }
 
-fn apply_kiosk_window_state(app: &AppHandle) -> Result<(), AppError> {
+fn apply_player_window_state(app: &AppHandle) -> Result<(), AppError> {
     let window = app.get_webview_window("main").ok_or_else(|| AppError::Window("main window is unavailable".into()))?;
     window.set_fullscreen(false).map_err(|error| AppError::Window(error.to_string()))?;
     window.set_decorations(false).map_err(|error| AppError::Window(error.to_string()))?;
     window.set_resizable(false).map_err(|error| AppError::Window(error.to_string()))?;
     window.set_minimizable(false).map_err(|error| AppError::Window(error.to_string()))?;
     window.set_maximizable(false).map_err(|error| AppError::Window(error.to_string()))?;
-    window.set_always_on_top(true).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_always_on_top(false).map_err(|error| AppError::Window(error.to_string()))?;
     window.set_fullscreen(true).map_err(|error| AppError::Window(error.to_string()))?;
     window.set_focus().map_err(|error| AppError::Window(error.to_string()))?;
+    Ok(())
+}
+
+fn apply_admin_window_state(app: &AppHandle) -> Result<(), AppError> {
+    let window = app.get_webview_window("main").ok_or_else(|| AppError::Window("main window is unavailable".into()))?;
+    window.set_fullscreen(false).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_always_on_top(false).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_decorations(true).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_resizable(true).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_minimizable(true).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_maximizable(true).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_skip_taskbar(false).map_err(|error| AppError::Window(error.to_string()))?;
     Ok(())
 }
 
@@ -234,16 +263,22 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             let database = open_database(&data_dir).map_err(|error| -> Box<dyn std::error::Error> { Box::new(error) })?;
             app.manage(AppState { database: Mutex::new(database), auth: Mutex::new(auth::AuthState::default()) });
+            apply_player_window_state(&app.handle()).map_err(|error| -> Box<dyn std::error::Error> { Box::new(error) })?;
             if let Some(window) = app.get_webview_window("main") {
-                window.on_window_event(|event| {
-                    if let WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); }
+                let app_handle = app.handle().clone();
+                window.on_window_event(move |event| {
+                    if let WindowEvent::CloseRequested { api, .. } = event {
+                        let state = app_handle.state::<AppState>();
+                        let connection = state.database.lock().expect("database lock poisoned");
+                        if kiosk_enabled(&connection).unwrap_or(false) { api.prevent_close(); }
+                    }
                 });
             }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             list_games, launch_game, admin_status, initialize_admin, authenticate_admin, logout_admin,
-            enter_admin_debug_mode, change_admin_password, admin_list_games, admin_save_game, admin_delete_game, admin_list_logs,
+            enter_admin_debug_mode, admin_get_kiosk_mode, admin_set_kiosk_mode, change_admin_password, admin_list_games, admin_save_game, admin_delete_game, admin_list_logs,
             admin_export_configuration, admin_import_configuration, admin_discover_games, exit_kiosk
         ])
         .run(tauri::generate_context!())

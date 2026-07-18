@@ -12,6 +12,8 @@ export const adminStatus = () => invoke<AdminStatus>('admin_status');
 export const initializeAdmin = (password: string) => invoke<AdminSession>('initialize_admin', { password });
 export const authenticateAdmin = (password: string) => invoke<AdminSession>('authenticate_admin', { password });
 export const enterAdminDebugMode = (sessionToken: string) => invoke<void>('enter_admin_debug_mode', { sessionToken });
+export const getKioskMode = (sessionToken: string) => invoke<boolean>('admin_get_kiosk_mode', { sessionToken });
+export const setKioskMode = (sessionToken: string, enabled: boolean) => invoke<void>('admin_set_kiosk_mode', { sessionToken, enabled });
 export const logoutAdmin = (sessionToken: string) => invoke<void>('logout_admin', { sessionToken });
 export const changeAdminPassword = (sessionToken: string, currentPassword: string, newPassword: string) => invoke<void>('change_admin_password', { sessionToken, currentPassword, newPassword });
 export const listManagedGames = (sessionToken: string) => invoke<ManagedGame[]>('admin_list_games', { sessionToken });

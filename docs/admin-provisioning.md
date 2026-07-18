@@ -14,6 +14,12 @@ After successful administrator authentication, Playnite exits fullscreen and res
 
 Choosing **Lock admin** re-applies Playnite's fullscreen, borderless, non-resizable, non-minimizable, non-maximizable, topmost kiosk window state. It also clears the active admin session, even if that session has expired.
 
+## Kiosk restrictions
+
+Playnite always starts as a fullscreen, borderless player window without minimize or maximize controls. It is never topmost, so games and launchers can take the foreground normally.
+
+Administrators can enable **Kiosk close protection** in the Security section to prevent closing Playnite through its window controls after the panel is locked. Opening authenticated administrator access always restores the normal debug window first.
+
 The password is converted immediately to an Argon2id hash using a unique random salt and stored in Playnite's SQLite database. The plaintext password is not written to configuration exports, logs, or source files.
 
 ## Operational rules

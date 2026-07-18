@@ -148,9 +148,22 @@ button:focus-visible, input:focus-visible { outline: 3px solid #75d7cb; outline-
 .game-editor, .password-form { display: grid; gap: 13px; padding: 19px; border: 1px solid #364247; border-radius: 6px; background: #141b1e; }
 .game-editor h4 { margin-bottom: 3px; color: #f5f7f8; font-size: 15px; }
 .two-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.color-preview { min-height: 58px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border: 1px solid #3a464b; border-radius: 4px; background: #0c1012; color: #b5c0c4; }
+.color-preview span { width: 24px; height: 24px; border: 1px solid rgba(255,255,255,.35); border-radius: 3px; }
+.color-preview small { font-size: 12px; font-weight: 650; }
 .checkbox-field { min-height: 30px; flex-direction: row !important; align-items: center; }
 .checkbox-field input { width: 16px; height: 16px; margin: 0; accent-color: #75d7cb; }
 .security-admin { max-width: 610px; }
+.kiosk-setting { max-width: 530px; display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 17px; padding: 15px 16px; border: 1px solid #364247; border-radius: 6px; background: #141b1e; }
+.kiosk-setting h4 { margin-bottom: 5px; color: #f5f7f8; font-size: 14px; }
+.kiosk-setting p { margin-bottom: 0; color: #97a3a7; font-size: 12px; line-height: 18px; }
+.toggle-switch { position: relative; width: 42px; height: 24px; flex: 0 0 auto; cursor: pointer; }
+.toggle-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.toggle-switch span { position: absolute; inset: 0; border: 1px solid #526166; border-radius: 12px; background: #202a2e; transition: background-color 120ms ease, border-color 120ms ease; }
+.toggle-switch span::after { content: ""; position: absolute; width: 16px; height: 16px; top: 3px; left: 3px; border-radius: 50%; background: #c9d3d5; transition: transform 120ms ease, background-color 120ms ease; }
+.toggle-switch input:checked + span { border-color: #75d7cb; background: #24534d; }
+.toggle-switch input:checked + span::after { transform: translateX(18px); background: #c6fff7; }
+.toggle-switch input:focus-visible + span { outline: 3px solid #75d7cb; outline-offset: 3px; }
 .password-form { max-width: 430px; }
 .danger-zone { margin-top: 30px; padding: 18px; border: 1px solid #693e36; border-radius: 6px; background: #1a1313; }
 .danger-zone h4 { margin-bottom: 7px; color: #ffd7d0; font-size: 14px; }
