@@ -24,6 +24,8 @@ pub enum AppError {
     UnsupportedLaunchMethod(String),
     #[error("Could not start game: {0}")]
     Launch(std::io::Error),
+    #[error("Could not update the Playnite window: {0}")]
+    Window(String),
 }
 
 impl serde::Serialize for AppError {

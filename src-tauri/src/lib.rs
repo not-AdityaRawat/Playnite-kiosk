@@ -85,10 +85,24 @@ fn authenticate_admin(password: String, state: State<'_, AppState>) -> Result<Ad
 }
 
 #[tauri::command]
-fn logout_admin(session_token: String, state: State<'_, AppState>) -> Result<(), AppError> {
+fn logout_admin(_session_token: String, state: State<'_, AppState>, app: AppHandle) -> Result<(), AppError> {
     let mut auth_state = state.auth.lock().expect("authentication lock poisoned");
-    auth::authorize(&mut auth_state, &session_token)?;
     auth::logout(&mut auth_state);
+    apply_kiosk_window_state(&app)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn enter_admin_debug_mode(session_token: String, state: State<'_, AppState>, app: AppHandle) -> Result<(), AppError> {
+    authorize(&state, &session_token)?;
+    let window = app.get_webview_window("main").ok_or_else(|| AppError::Window("main window is unavailable".into()))?;
+    window.set_fullscreen(false).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_always_on_top(false).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_decorations(true).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_resizable(true).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_minimizable(true).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_maximizable(true).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_skip_taskbar(false).map_err(|error| AppError::Window(error.to_string()))?;
     Ok(())
 }
 
@@ -187,6 +201,19 @@ fn authorize(state: &State<'_, AppState>, session_token: &str) -> Result<(), App
     auth::authorize(&mut auth_state, session_token)
 }
 
+fn apply_kiosk_window_state(app: &AppHandle) -> Result<(), AppError> {
+    let window = app.get_webview_window("main").ok_or_else(|| AppError::Window("main window is unavailable".into()))?;
+    window.set_fullscreen(false).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_decorations(false).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_resizable(false).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_minimizable(false).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_maximizable(false).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_always_on_top(true).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_fullscreen(true).map_err(|error| AppError::Window(error.to_string()))?;
+    window.set_focus().map_err(|error| AppError::Window(error.to_string()))?;
+    Ok(())
+}
+
 fn validate_game(game: &GameInput) -> Result<(), AppError> {
     const LAUNCH_METHODS: [&str; 9] = ["direct_exe", "steam_uri", "epic_uri", "ea_uri", "ubisoft_uri", "battlenet_uri", "custom_command", "powershell_script", "batch_file"];
     if game.name.trim().is_empty() || game.name.chars().count() > 160 { return Err(AppError::InvalidGame("name must contain 1-160 characters".into())); }
@@ -216,7 +243,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             list_games, launch_game, admin_status, initialize_admin, authenticate_admin, logout_admin,
-            change_admin_password, admin_list_games, admin_save_game, admin_delete_game, admin_list_logs,
+            enter_admin_debug_mode, change_admin_password, admin_list_games, admin_save_game, admin_delete_game, admin_list_logs,
             admin_export_configuration, admin_import_configuration, admin_discover_games, exit_kiosk
         ])
         .run(tauri::generate_context!())

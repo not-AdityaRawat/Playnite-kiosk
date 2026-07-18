@@ -7,3 +7,4 @@
 - Added protected game configuration, offline Steam/Epic discovery review, configuration transfer without credentials, and controlled kiosk exit.
 - Added tracked direct, command, batch, and PowerShell launches plus monitored URI-game returns.
 - Added Windows release packaging and kiosk deployment documentation.
+- Authenticated administrator access now temporarily restores a normal debug window and re-applies Playnite's kiosk window state when locked.

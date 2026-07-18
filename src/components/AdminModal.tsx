@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { ArrowDownUp, Check, KeyRound, LibraryBig, LogOut, ScrollText, ShieldCheck, Trash2, X } from 'lucide-react';
-import { adminStatus, authenticateAdmin, changeAdminPassword, deleteManagedGame, discoverGames, exitKiosk, exportConfiguration, importConfiguration, initializeAdmin, listAdminLogs, listManagedGames, logoutAdmin, saveManagedGame } from '../services/admin';
+import { adminStatus, authenticateAdmin, changeAdminPassword, deleteManagedGame, discoverGames, enterAdminDebugMode, exitKiosk, exportConfiguration, importConfiguration, initializeAdmin, listAdminLogs, listManagedGames, logoutAdmin, saveManagedGame } from '../services/admin';
 import type { AdminSession, ConfigurationExport, DiscoveryCandidate, GameInput, LogEntry, ManagedGame } from '../types/admin';
 import type { LaunchMethod } from '../types/game';
 
@@ -49,6 +49,7 @@ export function AdminModal({ onClose, onLibraryChanged }: AdminModalProps) {
   const authenticated = gate === 'panel' && session !== null;
 
   async function openPanel(nextSession: AdminSession) {
+    await enterAdminDebugMode(nextSession.token);
     setSession(nextSession);
     setGate('panel');
     setMessage('');
