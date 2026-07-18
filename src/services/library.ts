@@ -19,3 +19,9 @@ export async function launchGame(game: Game): Promise<void> {
   const { invoke } = await import('@tauri-apps/api/core');
   await invoke('launch_game', { gameId: game.id });
 }
+
+export async function resumeGame(game: Game): Promise<void> {
+  if (!isTauri) return;
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('resume_game', { gameId: game.id });
+}

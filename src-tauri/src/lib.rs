@@ -58,6 +58,18 @@ fn launch_game(game_id: String, state: State<'_, AppState>, app: AppHandle) -> R
 }
 
 #[tauri::command]
+fn resume_game(game_id: String, state: State<'_, AppState>) -> Result<(), AppError> {
+    let game = {
+        let connection = state.database.lock().expect("database lock poisoned");
+        find_game(&connection, &game_id)?
+    };
+    if let Some(process_name) = game.process_name {
+        launcher::bring_to_foreground(&process_name);
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn admin_status(state: State<'_, AppState>) -> Result<AdminStatus, AppError> {
     let connection = state.database.lock().expect("database lock poisoned");
     Ok(AdminStatus { initialized: has_admin_password(&connection)? })
@@ -278,7 +290,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            list_games, launch_game, admin_status, initialize_admin, authenticate_admin, logout_admin,
+            list_games, launch_game, resume_game, admin_status, initialize_admin, authenticate_admin, logout_admin,
             enter_admin_debug_mode, admin_get_kiosk_mode, admin_set_kiosk_mode, change_admin_password, admin_list_games, admin_save_game, admin_delete_game, admin_list_logs,
             admin_export_configuration, admin_import_configuration, admin_discover_games, exit_kiosk
         ])

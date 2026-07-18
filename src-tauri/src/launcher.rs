@@ -28,14 +28,7 @@ pub fn launch(game: &Game) -> Result<LaunchResult, AppError> {
     }
 }
 
-pub fn wait_for_external_process(process_name: &str) {
-    let appeared = (0..60).any(|_| {
-        if process_is_running(process_name) { return true; }
-        thread::sleep(Duration::from_secs(1));
-        false
-    });
-    if !appeared { return; }
-
+pub fn bring_to_foreground(process_name: &str) {
     #[cfg(target_os = "windows")]
     {
         let ps_script = format!(r#"
@@ -60,6 +53,18 @@ pub fn wait_for_external_process(process_name: &str) {
         command.creation_flags(CREATE_NO_WINDOW);
         let _ = command.args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &ps_script]).spawn();
     }
+}
+
+pub fn wait_for_external_process(process_name: &str) {
+    let appeared = (0..60).any(|_| {
+        if process_is_running(process_name) { return true; }
+        thread::sleep(Duration::from_secs(1));
+        false
+    });
+    if !appeared { return; }
+
+    bring_to_foreground(process_name);
+
     while process_is_running(process_name) {
         thread::sleep(Duration::from_secs(1));
     }

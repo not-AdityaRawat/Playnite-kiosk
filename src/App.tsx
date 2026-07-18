@@ -48,7 +48,14 @@ export default function App() {
       }
       if (event.key === 'Enter') {
         const selectedGame = visibleGames.find((game) => game.id === selectedId);
-        if (selectedGame) void launch(selectedGame);
+        if (selectedGame) {
+          const state = useLibraryStore.getState();
+          if (state.launchState.kind === 'running' && state.launchState.game.id === selectedGame.id) {
+            void state.resume(selectedGame);
+          } else {
+            void launch(selectedGame);
+          }
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -57,7 +64,14 @@ export default function App() {
 
   useGamepadNavigation(() => moveSelection('previous'), () => moveSelection('next'), () => {
     const selectedGame = visibleGames.find((game) => game.id === selectedId);
-    if (selectedGame) void launch(selectedGame);
+    if (selectedGame) {
+      const state = useLibraryStore.getState();
+      if (state.launchState.kind === 'running' && state.launchState.game.id === selectedGame.id) {
+        void state.resume(selectedGame);
+      } else {
+        void launch(selectedGame);
+      }
+    }
   });
 
   return (
@@ -80,9 +94,20 @@ export default function App() {
         </div>
         {loading ? <div className="empty-state">Loading library</div> : visibleGames.length === 0 ? <div className="empty-state">No games found</div> : (
           <div className="game-grid">
-            {visibleGames.map((game) => (
-              <GameCard key={game.id} game={game} selected={selectedId === game.id} onSelect={() => select(game.id)} onLaunch={() => void launch(game)} />
-            ))}
+            {visibleGames.map((game) => {
+              const isRunning = launchState.kind === 'running' && launchState.game.id === game.id;
+              return (
+                <GameCard
+                  key={game.id}
+                  game={game}
+                  selected={game.id === selectedId}
+                  isRunning={isRunning}
+                  onSelect={() => select(game.id)}
+                  onLaunch={() => void launch(game)}
+                  onResume={() => void useLibraryStore.getState().resume(game)}
+                />
+              );
+            })}
           </div>
         )}
       </section>

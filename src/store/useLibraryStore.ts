@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { listGames, launchGame } from '../services/library';
+import { listGames, launchGame, resumeGame } from '../services/library';
 import type { Game, LaunchState } from '../types/game';
 
 interface LibraryState {
@@ -12,6 +12,7 @@ interface LibraryState {
   setQuery: (query: string) => void;
   select: (id: string) => void;
   launch: (game: Game) => Promise<void>;
+  resume: (game: Game) => Promise<void>;
   clearLaunchState: () => void;
 }
 
@@ -39,6 +40,9 @@ export const useLibraryStore = create<LibraryState>((set) => ({
     } catch (error) {
       set({ launchState: { kind: 'error', game, message: error instanceof Error ? error.message : 'Unable to start this game.' } });
     }
+  },
+  resume: async (game) => {
+    await resumeGame(game);
   },
   clearLaunchState: () => set({ launchState: { kind: 'idle' } }),
 }));

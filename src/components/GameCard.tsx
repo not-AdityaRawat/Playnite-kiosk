@@ -1,18 +1,20 @@
-import { Play } from 'lucide-react';
+import { Play, PlaySquare } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { Game } from '../types/game';
 
 interface GameCardProps {
   game: Game;
   selected: boolean;
+  isRunning?: boolean;
   onSelect: () => void;
   onLaunch: () => void;
+  onResume?: () => void;
 }
 
-export function GameCard({ game, selected, onSelect, onLaunch }: GameCardProps) {
+export function GameCard({ game, selected, isRunning, onSelect, onLaunch, onResume }: GameCardProps) {
   return (
     <article
-      className={`game-card${selected ? ' is-selected' : ''}`}
+      className={`game-card${selected ? ' is-selected' : ''}${isRunning ? ' is-running' : ''}`}
       style={{ '--game-accent': game.accent } as CSSProperties}
       onMouseEnter={onSelect}
       onFocus={onSelect}
@@ -22,10 +24,17 @@ export function GameCard({ game, selected, onSelect, onLaunch }: GameCardProps) 
       </div>
       <div className="game-card__body">
         <h2>{game.name}</h2>
-        <button className="play-button" type="button" onClick={onLaunch} aria-label={`Play ${game.name}`}>
-          <Play size={17} fill="currentColor" aria-hidden="true" />
-          <span>Play</span>
-        </button>
+        {isRunning ? (
+          <button className="play-button" type="button" onClick={onResume} aria-label={`Resume ${game.name}`}>
+            <PlaySquare size={17} fill="currentColor" aria-hidden="true" />
+            <span>Resume</span>
+          </button>
+        ) : (
+          <button className="play-button" type="button" onClick={onLaunch} aria-label={`Play ${game.name}`}>
+            <Play size={17} fill="currentColor" aria-hidden="true" />
+            <span>Play</span>
+          </button>
+        )}
       </div>
     </article>
   );
