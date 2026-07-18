@@ -6,7 +6,7 @@ import { AdminModal } from './components/AdminModal';
 import { useLibraryStore } from './store/useLibraryStore';
 
 export default function App() {
-  const { games, query, selectedId, loading, load, setQuery, select, launch, clearLaunchState } = useLibraryStore();
+  const { games, query, selectedId, loading, load, setQuery, select, launch, clearLaunchState, launchState } = useLibraryStore();
   const [adminOpen, setAdminOpen] = useState(false);
   const visibleGames = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
