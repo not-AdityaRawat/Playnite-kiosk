@@ -25,8 +25,11 @@ fn discover_steam() -> Vec<DiscoveryCandidate> {
             Some(DiscoveryCandidate {
                 source: "Steam".into(),
                 game: GameInput {
-                    id: None, name, launch_method: "steam_uri".into(), executable: format!("steam://rungameid/{app_id}"),
-                    working_directory: None, arguments: None, icon_path: None, process_name, accent: "#75d7cb".into(), sort_order: 0, visible: true,
+                    id: None, name, launch_method: "command".into(), 
+                    executable: r#"C:\Program Files (x86)\Steam\steam.exe"#.into(),
+                    working_directory: None, 
+                    arguments: Some(format!("-applaunch {app_id}")), 
+                    icon_path: None, process_name, accent: "#75d7cb".into(), sort_order: 0, visible: true,
                 },
             })
         }).collect::<Vec<_>>()
