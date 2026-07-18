@@ -25,7 +25,7 @@ fn discover_steam() -> Vec<DiscoveryCandidate> {
             Some(DiscoveryCandidate {
                 source: "Steam".into(),
                 game: GameInput {
-                    id: None, name, launch_method: "command".into(), 
+                    id: None, name, launch_method: "steam_command".into(), 
                     executable: r#"C:\Program Files (x86)\Steam\steam.exe"#.into(),
                     working_directory: None, 
                     arguments: Some(format!("-applaunch {app_id}")), 

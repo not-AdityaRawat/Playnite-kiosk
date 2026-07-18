@@ -18,6 +18,10 @@ pub fn launch(game: &Game) -> Result<LaunchResult, AppError> {
             game.process_name.clone().map(LaunchResult::External).ok_or_else(|| AppError::InvalidGame("URI launch methods require a game process name".into()))
         }
         "custom_command" => launch_command(game).map(LaunchResult::Tracked),
+        "steam_command" => {
+            launch_command(game)?;
+            game.process_name.clone().map(LaunchResult::External).ok_or_else(|| AppError::InvalidGame("steam_command requires a game process name".into()))
+        }
         "powershell_script" => launch_powershell(game).map(LaunchResult::Tracked),
         "batch_file" => launch_batch(game).map(LaunchResult::Tracked),
         other => Err(AppError::UnsupportedLaunchMethod(other.to_string())),
