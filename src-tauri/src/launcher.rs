@@ -65,7 +65,14 @@ fn launch_batch(game: &Game) -> Result<Child, AppError> {
     command.spawn().map_err(AppError::Launch)
 }
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 fn apply_game_options(command: &mut Command, game: &Game) -> Result<(), AppError> {
+    #[cfg(target_os = "windows")]
+    command.creation_flags(CREATE_NO_WINDOW);
+
     if let Some(arguments) = &game.arguments {
         command.args(shell_words::split(arguments).map_err(|_| AppError::UnsupportedLaunchMethod("invalid command arguments".into()))?);
     }
@@ -76,11 +83,17 @@ fn apply_game_options(command: &mut Command, game: &Game) -> Result<(), AppError
 }
 
 fn open_uri(uri: &str) -> Result<(), AppError> {
-    Command::new("explorer.exe").arg(uri).spawn().map(|_| ()).map_err(AppError::Launch)
+    let mut command = Command::new("explorer.exe");
+    #[cfg(target_os = "windows")]
+    command.creation_flags(CREATE_NO_WINDOW);
+    command.arg(uri).spawn().map(|_| ()).map_err(AppError::Launch)
 }
 
 fn process_is_running(process_name: &str) -> bool {
     let filter = format!("IMAGENAME eq {process_name}");
-    let Ok(output) = Command::new("tasklist").args(["/FI", &filter, "/NH"]).output() else { return false; };
+    let mut command = Command::new("tasklist");
+    #[cfg(target_os = "windows")]
+    command.creation_flags(CREATE_NO_WINDOW);
+    let Ok(output) = command.args(["/FI", &filter, "/NH"]).output() else { return false; };
     String::from_utf8_lossy(&output.stdout).to_ascii_lowercase().contains(&process_name.to_ascii_lowercase())
 }
