@@ -41,7 +41,7 @@ fn discover_steam() -> Vec<DiscoveryCandidate> {
                     }
                 })
             }).collect::<Vec<_>>()
-        }).collect::<Vec<_>>()
+    }).collect()
 }
 
 fn discover_epic() -> Vec<DiscoveryCandidate> {
@@ -64,6 +64,7 @@ fn discover_epic() -> Vec<DiscoveryCandidate> {
                 icon_path: None, process_name, accent: "#75d7cb".into(), sort_order: 0, visible: true,
             },
         })
+    }).collect()
 }
 
 fn steam_roots() -> Vec<PathBuf> {
