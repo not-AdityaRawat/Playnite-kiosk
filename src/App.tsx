@@ -119,27 +119,72 @@ export default function App() {
 }
 
 function useGamepadNavigation(previous: () => void, next: () => void, confirm: () => void) {
-  const heldButtons = useRef(new Set<number>());
+  const heldInputs = useRef(new Map<string, number>());
 
   useEffect(() => {
     let frameId = 0;
     const poll = () => {
+      const now = performance.now();
       for (const controller of navigator.getGamepads()) {
         if (!controller) continue;
-        const bindings: Array<[number, () => void]> = [[12, previous], [14, previous], [13, next], [15, next], [0, confirm]];
+        
+        // Define digital button bindings
+        const bindings: Array<[number, () => void]> = [
+          [12, previous], [14, previous], // D-pad Up, Left
+          [13, next], [15, next],         // D-pad Down, Right
+          [0, confirm]                    // A Button
+        ];
+
+        // Combine inputs into a generic array of active commands
+        const activeCommands: Array<{ key: string, action: () => void, isAxis?: boolean }> = [];
+        
         for (const [buttonIndex, action] of bindings) {
-          const pressed = controller.buttons[buttonIndex]?.pressed ?? false;
-          const key = controller.index * 100 + buttonIndex;
-          if (pressed && !heldButtons.current.has(key)) {
-            heldButtons.current.add(key);
-            action();
+          if (controller.buttons[buttonIndex]?.pressed) {
+            activeCommands.push({ key: `btn_${controller.index}_${buttonIndex}`, action });
           }
-          if (!pressed) heldButtons.current.delete(key);
+        }
+
+        // Add Left Stick (Axes 0 and 1)
+        const deadzone = 0.5;
+        const lsX = controller.axes[0] ?? 0;
+        const lsY = controller.axes[1] ?? 0;
+        
+        if (lsX < -deadzone || lsY < -deadzone) {
+          activeCommands.push({ key: `axis_${controller.index}_prev`, action: previous, isAxis: true });
+        }
+        if (lsX > deadzone || lsY > deadzone) {
+          activeCommands.push({ key: `axis_${controller.index}_next`, action: next, isAxis: true });
+        }
+
+        // Process active commands for repeat logic
+        const currentActiveKeys = new Set<string>();
+        
+        for (const { key, action, isAxis } of activeCommands) {
+          currentActiveKeys.add(key);
+          const lastTriggered = heldInputs.current.get(key);
+          
+          if (lastTriggered === undefined) {
+            // First press
+            action();
+            heldInputs.current.set(key, now + 300); // Wait 300ms before repeating
+          } else if (now > lastTriggered) {
+            // Repeat
+            action();
+            // Axis inputs repeat faster because they feel slower when held
+            heldInputs.current.set(key, now + (isAxis ? 100 : 120));
+          }
+        }
+
+        // Clean up released inputs
+        for (const key of heldInputs.current.keys()) {
+          if (!currentActiveKeys.has(key)) {
+            heldInputs.current.delete(key);
+          }
         }
       }
       frameId = window.requestAnimationFrame(poll);
     };
     frameId = window.requestAnimationFrame(poll);
     return () => window.cancelAnimationFrame(frameId);
-  }, [confirm, next, previous]);
+  }, [previous, next, confirm]);
 }
