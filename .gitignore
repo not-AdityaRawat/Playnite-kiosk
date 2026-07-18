@@ -1,0 +1,25 @@
+node_modules/
+dist/
+coverage/
+
+# Tauri and Rust build products, including NSIS installers
+src-tauri/target/
+*.pdb
+
+# Local application state and secrets
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+!.env.example
+
+# TypeScript and tool caches
+*.tsbuildinfo
+.vite/
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

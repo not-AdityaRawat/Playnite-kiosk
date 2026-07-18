@@ -1,0 +1,25 @@
+[package]
+name = "playnite"
+version = "1.0.0"
+description = "A focused Windows game launcher for managed gaming environments."
+authors = ["Playnite"]
+edition = "2021"
+
+[lib]
+name = "playnite_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+tauri = { version = "2.0", features = [] }
+tauri-build = "2.0"
+rusqlite = { version = "0.32", features = ["bundled"] }
+shell-words = "1.1"
+thiserror = "2.0"
+argon2 = "0.5"
+uuid = { version = "1.12", features = ["v4"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+serde_json = "1"
